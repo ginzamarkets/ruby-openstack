@@ -725,12 +725,16 @@ class Connection
           exception_class = self.const_get("ItemNotFound")
           raise exception_class.new("The resource could not be found", "404", "")
         else
-          JSON.parse(response.body).each_pair do |key, val|
-            fault=key
-            info=val
+          if response.body.nil?
+            raise OpenStack::Exception::Other.new("The server returned status #{response.code}", response.code, '')
+          else
+            JSON.parse(response.body).each_pair do |key, val|
+              fault=key
+              info=val
+            end
+            exception_class = self.const_get(fault[0,1].capitalize+fault[1,fault.length])
+            raise exception_class.new((info["message"] || info), response.code, response.body)
           end
-          exception_class = self.const_get(fault[0,1].capitalize+fault[1,fault.length])
-          raise exception_class.new((info["message"] || info), response.code, response.body)
         end
       rescue JSON::ParserError => parse_error
         deal_with_faulty_error(response, parse_error)
